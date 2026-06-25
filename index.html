@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>尖叫遊戲 - 原型 v1</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; background: #000;
+    font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+    overscroll-behavior: none; touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    position: fixed; inset: 0;
+  }
+  #game { display: block; touch-action: none; }
+  /* 安全區避開 iPhone 瀏海與圓角 */
+  #volWrap { left: calc(20px + env(safe-area-inset-left)) !important; }
+  #status  { right: calc(20px + env(safe-area-inset-right)) !important; top: calc(16px + env(safe-area-inset-top)) !important; }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #volWrap {
+    position: absolute; left: 20px; bottom: 20px; width: 220px;
+    background: rgba(0,0,0,0.55); border: 1px solid #5a1a1a; border-radius: 8px; padding: 10px;
+  }
+  #volLabel { color: #ddd; font-size: 12px; margin-bottom: 6px; letter-spacing: 1px; }
+  #volBarBg { width: 100%; height: 16px; background: #222; border-radius: 8px; overflow: hidden; }
+  #volBar { height: 100%; width: 0%; background: linear-gradient(90deg,#3a7,#fd3,#f33); transition: width 0.05s linear; }
+  #threshLine { position: absolute; top: 26px; width: 2px; height: 16px; background: #fff; opacity: 0.8; }
+
+  #status {
+    position: absolute; right: 20px; top: 16px; text-align: right; color: #eee;
+    background: rgba(0,0,0,0.45); padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.6;
+  }
+  #status b { color: #f55; }
+
+  #speedTag { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); color:#f66; font-size: 20px; font-weight: bold; text-shadow: 0 0 8px #000; opacity:0; transition: opacity .2s;}
+
+  /* overlays */
+  .overlay {
+    position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: radial-gradient(circle at center, rgba(40,0,0,0.85), rgba(0,0,0,0.97));
+    color: #eee; gap: 18px; padding: 30px;
+  }
+  .overlay h1 { font-size: 42px; color: #d33; letter-spacing: 4px; text-shadow: 0 0 18px #800; }
+  .overlay p { font-size: 16px; max-width: 560px; line-height: 1.9; color: #ccc; }
+  .overlay .keys { font-size: 14px; color: #999; }
+  .overlay button {
+    pointer-events: auto; margin-top: 10px; padding: 14px 40px; font-size: 18px; cursor: pointer;
+    background: #7a1818; color: #fff; border: 1px solid #c44; border-radius: 6px; letter-spacing: 2px;
+    transition: background .2s;
+  }
+  .overlay button:hover { background: #a52020; }
+  .hidden { display: none !important; }
+  .win h1 { color: #4c8; text-shadow: 0 0 18px #084; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="volWrap">
+    <div id="volLabel">麥克風音量（尖叫才會奔跑）</div>
+    <div id="volBarBg"><div id="volBar"></div></div>
+    <div id="threshLine"></div>
+  </div>
+  <div id="status">
+    狀態：<b id="chaseState">潛行中</b><br>
+    距離出口：<span id="distOut">--</span> m<br>
+    怪物距離：<span id="distMob">--</span> m
+  </div>
+  <div id="speedTag">奔跑！</div>
+</div>
+
+<!-- Start overlay -->
+<div id="startScreen" class="overlay">
+  <h1>尖 叫 遊 戲</h1>
+  <p>
+    你被困在黑暗的迷宮裡，身後有東西在追你。<br>
+    這裡的規則只有一條：<b style="color:#f55">你必須對著麥克風尖叫，才能奔跑。</b><br>
+    安靜下來，你就會停在原地——而牠不會。
+  </p>
+  <p class="keys">手機：手指拖曳螢幕轉頭　·　電腦：移動滑鼠轉頭<br>尖叫：往面對的方向奔跑（越大聲越快）　·　找到綠色發光的出口逃出去。<br><span style="color:#fa6">手機請橫向拿、把鈴聲開關打開，並允許麥克風。</span></p>
+  <button id="startBtn">允許麥克風並開始</button>
+  <p class="keys" id="micErr" style="color:#f66;"></p>
+</div>
+
+<!-- End overlays -->
+<div id="loseScreen" class="overlay hidden">
+  <h1>你 被 抓 住 了</h1>
+  <p>牠追上了你。下次別停下來。</p>
+  <button onclick="location.reload()">再試一次</button>
+</div>
+<div id="winScreen" class="overlay win hidden">
+  <h1>你 逃 出 來 了</h1>
+  <p id="winTime">你尖叫著衝出了迷宮。</p>
+  <button onclick="location.reload()">再玩一次</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ======================================================================
+// 尖叫遊戲 原型 v1  —  Three.js + Web Audio
+// 核心玩法：對麥克風尖叫 → 角色往視線方向奔跑；安靜 → 停止。
+// 架構預留：所有玩家狀態集中在 player 物件，之後可序列化送往伺服器做多人同步。
+// ======================================================================
+
+// ---------- 全域狀態 ----------
+const CONFIG = {
+  cell: 6,            // 迷宮每格邊長
+  wallH: 4,           // 牆高
+  playerR: 0.6,       // 玩家碰撞半徑
+  eyeH: 1.6,          // 視線高度
+  maxSpeed: 8.0,      // 滿音量奔跑速度 (m/s)
+  monsterSpeed: 3.4,  // 怪物速度 (m/s) — 比玩家慢，但你一停下牠就逼近
+  catchDist: 1.3,     // 被抓判定距離
+  volThreshold: 0.12, // 開始奔跑的音量門檻 (0~1)
+};
+
+let scene, camera, renderer;
+let player = { x: 0, z: 0, yaw: 0, speed: 0, alive: true, won: false };
+let monster = { x: 0, z: 0, mesh: null };
+let exitPos = { x: 0, z: 0 };
+let walls = [];      // {minX,maxX,minZ,maxZ} 供碰撞用
+let micVol = 0;      // 平滑後的麥克風音量 0~1
+let analyser, micData, audioCtx;
+let running = false;
+let clock;
+
+// ---------- 迷宮地圖 (1=牆, 0=路, S=起點, E=出口) ----------
+const MAZE = [
+  "1111111111111",
+  "1S0001000001E",
+  "1011101111101",
+  "1000100000101",
+  "1110111110101",
+  "1000001000001",
+  "1011111011110",
+  "1010000010001",
+  "1010110111101",
+  "1000100000001",
+  "1111111111111",
+];
+
+// ---------- 初始化場景 ----------
+function initScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x050507);
+  scene.fog = new THREE.FogExp2(0x050507, 0.06);
+
+  camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 200);
+  camera.position.y = CONFIG.eyeH;
+
+  renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game'), antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+  // 燈光：微弱環境光 + 跟著玩家的手電筒
+  scene.add(new THREE.AmbientLight(0x222233, 1.0));
+  const torch = new THREE.PointLight(0xffaa66, 1.3, 14, 2);
+  torch.position.set(0, CONFIG.eyeH, 0);
+  camera.add(torch);
+  scene.add(camera);
+
+  buildMaze();
+  buildMonster();
+
+  window.addEventListener('resize', onResize);
+}
+
+function buildMaze() {
+  const C = CONFIG.cell;
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 1 });
+  const ceilMat  = new THREE.MeshStandardMaterial({ color: 0x0a0a0d, roughness: 1 });
+  const wallMat  = new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.9 });
+
+  const rows = MAZE.length, cols = MAZE[0].length;
+  const W = cols * C, D = rows * C;
+
+  // 地板與天花板
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
+  floor.rotation.x = -Math.PI/2; floor.position.set(W/2, 0, D/2); scene.add(floor);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), ceilMat);
+  ceil.rotation.x = Math.PI/2; ceil.position.set(W/2, CONFIG.wallH, D/2); scene.add(ceil);
+
+  const wallGeo = new THREE.BoxGeometry(C, CONFIG.wallH, C);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const ch = MAZE[r][c];
+      const cx = c * C + C/2, cz = r * C + C/2;
+      if (ch === '1') {
+        const m = new THREE.Mesh(wallGeo, wallMat);
+        m.position.set(cx, CONFIG.wallH/2, cz);
+        scene.add(m);
+        walls.push({ minX: cx - C/2, maxX: cx + C/2, minZ: cz - C/2, maxZ: cz + C/2 });
+      } else if (ch === 'S') {
+        player.x = cx; player.z = cz;
+      } else if (ch === 'E') {
+        exitPos.x = cx; exitPos.z = cz;
+        // 出口綠光
+        const exitLight = new THREE.PointLight(0x33ff88, 2.5, 18, 2);
+        exitLight.position.set(cx, CONFIG.eyeH, cz); scene.add(exitLight);
+        const portal = new THREE.Mesh(
+          new THREE.BoxGeometry(C*0.5, CONFIG.wallH*0.8, C*0.5),
+          new THREE.MeshBasicMaterial({ color: 0x33ff88, transparent:true, opacity:0.45 })
+        );
+        portal.position.set(cx, CONFIG.wallH*0.4, cz); scene.add(portal);
+      }
+    }
+  }
+  // 怪物起點：放在出口附近的另一端起點處（這裡放迷宮深處）
+  monster.x = exitPos.x; monster.z = exitPos.z; // 暫放，下面重設
+  // 把怪物放在玩家後方幾格
+  monster.x = player.x + C*1.0; monster.z = player.z + C*2.0;
+}
+
+function buildMonster() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8),
+    new THREE.MeshStandardMaterial({ color: 0x901010, emissive: 0x300000, roughness: 0.8 })
+  );
+  body.position.y = 1.1; g.add(body);
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0xbb1515, emissive: 0x400000 })
+  );
+  head.position.y = 2.4; g.add(head);
+  // 發紅光的眼睛
+  const eyeL = new THREE.PointLight(0xff2200, 1.2, 6, 2); eyeL.position.set(0,2.4,0); g.add(eyeL);
+  g.position.set(monster.x, 0, monster.z);
+  scene.add(g);
+  monster.mesh = g;
+}
+
+// ---------- 麥克風 ----------
+async function initMic() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();  // iOS 需在手勢內喚醒
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+    echoCancellation: false, noiseSuppression: false, autoGainControl: false
+  }});
+  const src = audioCtx.createMediaStreamSource(stream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  src.connect(analyser);
+  micData = new Uint8Array(analyser.fftSize);
+}
+
+function sampleMic() {
+  if (!analyser) return;
+  analyser.getByteTimeDomainData(micData);
+  // RMS 音量
+  let sum = 0;
+  for (let i = 0; i < micData.length; i++) {
+    const v = (micData[i] - 128) / 128;
+    sum += v * v;
+  }
+  const rms = Math.sqrt(sum / micData.length);   // 0~~1
+  const norm = Math.min(1, rms * 3.0);           // 放大方便觸發
+  // 平滑：上升快、下降稍慢
+  micVol += (norm - micVol) * (norm > micVol ? 0.6 : 0.25);
+}
+
+// ---------- 碰撞 ----------
+function collides(x, z) {
+  const r = CONFIG.playerR;
+  for (const w of walls) {
+    if (x + r > w.minX && x - r < w.maxX && z + r > w.minZ && z - r < w.maxZ) return true;
+  }
+  return false;
+}
+function tryMove(x, z, nx, nz) {
+  let rx = x, rz = z;
+  if (!collides(nx, z)) rx = nx;   // 分軸滑動
+  if (!collides(rx, nz)) rz = nz;
+  return { x: rx, z: rz };
+}
+
+// ---------- 主迴圈 ----------
+function loop() {
+  if (!running) return;
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, clock.getDelta());
+
+  sampleMic();
+
+  // 尖叫 → 速度
+  let target = 0;
+  if (micVol > CONFIG.volThreshold) {
+    const t = (micVol - CONFIG.volThreshold) / (1 - CONFIG.volThreshold);
+    target = t * CONFIG.maxSpeed;
+  }
+  player.speed += (target - player.speed) * 0.3;
+
+  if (player.alive && !player.won) {
+    // 往視線水平方向前進
+    const dirX = -Math.sin(player.yaw);
+    const dirZ = -Math.cos(player.yaw);
+    const nx = player.x + dirX * player.speed * dt;
+    const nz = player.z + dirZ * player.speed * dt;
+    const moved = tryMove(player.x, player.z, nx, nz);
+    player.x = moved.x; player.z = moved.z;
+
+    // 怪物追逐（朝玩家直線移動，遇牆滑動）
+    const mdx = player.x - monster.x, mdz = player.z - monster.z;
+    const mdist = Math.hypot(mdx, mdz) || 1;
+    const mnx = monster.x + (mdx/mdist) * CONFIG.monsterSpeed * dt;
+    const mnz = monster.z + (mdz/mdist) * CONFIG.monsterSpeed * dt;
+    const mMoved = tryMove(monster.x, monster.z, mnx, mnz);
+    monster.x = mMoved.x; monster.z = mMoved.z;
+
+    // 判定
+    if (mdist < CONFIG.catchDist) endGame(false);
+    if (Math.hypot(player.x-exitPos.x, player.z-exitPos.z) < CONFIG.cell*0.5) endGame(true);
+  }
+
+  // 更新相機與怪物網格
+  camera.position.x = player.x;
+  camera.position.z = player.z;
+  camera.rotation.set(0, player.yaw, 0, 'YXZ');
+  if (monster.mesh) {
+    monster.mesh.position.set(monster.x, 0, monster.z);
+    monster.mesh.lookAt(player.x, 0, player.z);
+  }
+
+  updateHUD();
+  renderer.render(scene, camera);
+}
+
+function updateHUD() {
+  document.getElementById('volBar').style.width = (micVol*100).toFixed(0) + '%';
+  document.getElementById('threshLine').style.left = (20 + 10 + CONFIG.volThreshold*200) + 'px';
+  const dOut = Math.hypot(player.x-exitPos.x, player.z-exitPos.z);
+  const dMob = Math.hypot(player.x-monster.x, player.z-monster.z);
+  document.getElementById('distOut').textContent = dOut.toFixed(1);
+  document.getElementById('distMob').textContent = dMob.toFixed(1);
+  const cs = document.getElementById('chaseState');
+  if (dMob < 8) { cs.textContent = '牠靠近了！'; cs.style.color = '#f33'; }
+  else if (player.speed > 1) { cs.textContent = '奔跑中'; cs.style.color = '#fd6'; }
+  else { cs.textContent = '潛行中'; cs.style.color = '#9c9'; }
+  const tag = document.getElementById('speedTag');
+  tag.style.opacity = player.speed > 2 ? '1' : '0';
+}
+
+function endGame(won) {
+  player.won = won; player.alive = won ? player.alive : false;
+  running = false;
+  document.getElementById(won ? 'winScreen' : 'loseScreen').classList.remove('hidden');
+}
+
+// ---------- 輸入：桌機滑鼠 + 手機觸控轉頭 ----------
+const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+function setupControls() {
+  const cvs = do
