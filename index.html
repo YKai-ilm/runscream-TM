@@ -18,7 +18,8 @@
   #game { display: block; touch-action: none; }
   /* 安全區避開 iPhone 瀏海與圓角 */
   #volWrap { left: calc(20px + env(safe-area-inset-left)) !important; }
-  #status  { right: calc(20px + env(safe-area-inset-right)) !important; top: calc(16px + env(safe-area-inset-top)) !important; }
+  #minimap { right: calc(16px + env(safe-area-inset-right)) !important; top: calc(14px + env(safe-area-inset-top)) !important; }
+  #status  { right: calc(16px + env(safe-area-inset-right)) !important; top: calc(184px + env(safe-area-inset-top)) !important; }
 
   /* HUD */
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
@@ -31,8 +32,14 @@
   #volBar { height: 100%; width: 0%; background: linear-gradient(90deg,#3a7,#fd3,#f33); transition: width 0.05s linear; }
   #threshLine { position: absolute; top: 26px; width: 2px; height: 16px; background: #fff; opacity: 0.8; }
 
+  /* 即時小地圖 */
+  #minimap {
+    position: absolute; right: 16px; top: 14px; width: 200px; height: 150px;
+    background: rgba(0,0,0,0.6); border: 1px solid #5a1a1a; border-radius: 8px;
+  }
+
   #status {
-    position: absolute; right: 20px; top: 16px; text-align: right; color: #eee;
+    position: absolute; right: 16px; top: 184px; text-align: right; color: #eee;
     background: rgba(0,0,0,0.45); padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.6;
   }
   #status b { color: #f55; }
@@ -52,17 +59,26 @@
   .overlay button {
     pointer-events: auto; margin-top: 10px; padding: 14px 40px; font-size: 18px; cursor: pointer;
     background: #7a1818; color: #fff; border: 1px solid #c44; border-radius: 6px; letter-spacing: 2px;
-    transition: background .2s;
+    transition: background .2s, opacity .4s;
   }
   .overlay button:hover { background: #a52020; }
   .hidden { display: none !important; }
   .win h1 { color: #4c8; text-shadow: 0 0 18px #084; }
+
+  /* 被抓：恐怖臉部快速左右晃動 */
+  #loseScreen { background: radial-gradient(circle at center, rgba(70,0,0,0.92), rgba(0,0,0,0.99)); }
+  #scareFace { width: min(64vw, 320px); filter: drop-shadow(0 0 22px #b00000); animation: faceShake 0.05s infinite alternate; }
+  @keyframes faceShake {
+    0%   { transform: translateX(-18px) rotate(-2.5deg) scale(1.0); }
+    100% { transform: translateX(18px)  rotate(2.5deg)  scale(1.04); }
+  }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 
 <div id="hud">
+  <canvas id="minimap" width="200" height="150"></canvas>
   <div id="volWrap">
     <div id="volLabel">麥克風音量（尖叫才會奔跑）</div>
     <div id="volBarBg"><div id="volBar"></div></div>
@@ -92,9 +108,37 @@
 
 <!-- End overlays -->
 <div id="loseScreen" class="overlay hidden">
-  <h1>你 被 抓 住 了</h1>
-  <p>牠追上了你。下次別停下來。</p>
-  <button onclick="location.reload()">再試一次</button>
+  <svg id="scareFace" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+    <path d="M100 8 C150 8 172 50 168 110 C165 165 140 232 100 232 C60 232 35 165 32 110 C28 50 50 8 100 8 Z" fill="#c9c3b0"/>
+    <path d="M70 30 L78 70 L66 95" stroke="#7a7060" stroke-width="3" fill="none" opacity="0.6"/>
+    <path d="M135 40 L128 82" stroke="#7a7060" stroke-width="2.5" fill="none" opacity="0.5"/>
+    <ellipse cx="66" cy="100" rx="26" ry="33" fill="#0a0608"/>
+    <ellipse cx="134" cy="100" rx="26" ry="33" fill="#0a0608"/>
+    <circle cx="66" cy="104" r="14" fill="#ff2a18" opacity="0.22"/>
+    <circle cx="134" cy="104" r="14" fill="#ff2a18" opacity="0.22"/>
+    <circle cx="66" cy="104" r="7" fill="#ff2a18"/>
+    <circle cx="134" cy="104" r="7" fill="#ff2a18"/>
+    <path d="M100 112 L91 152 L109 152 Z" fill="#5a5040"/>
+    <path d="M94 152 q6 8 12 0" stroke="#3a3228" stroke-width="3" fill="none"/>
+    <path d="M52 175 Q100 156 148 175 Q120 216 100 217 Q80 216 52 175 Z" fill="#1a0608"/>
+    <g fill="#e8e2cf">
+      <polygon points="60,176 70,176 65,192"/>
+      <polygon points="72,174 84,174 78,197"/>
+      <polygon points="86,173 100,173 93,199"/>
+      <polygon points="100,173 114,173 107,199"/>
+      <polygon points="116,174 128,174 122,197"/>
+      <polygon points="130,176 140,176 135,192"/>
+    </g>
+    <g fill="#cfc8b2">
+      <polygon points="78,215 88,215 83,203"/>
+      <polygon points="92,217 104,217 98,201"/>
+      <polygon points="108,215 118,215 113,203"/>
+    </g>
+    <path d="M120 200 q4 18 0 30 q-6 -6 0 -30" fill="#9a0a0a"/>
+    <path d="M150 150 q3 24 0 40 q-5 -8 0 -40" fill="#9a0a0a" opacity="0.85"/>
+  </svg>
+  <h1 style="margin-top:4px;">你 被 抓 住 了</h1>
+  <button id="loseBtn" onclick="location.reload()">再試一次</button>
 </div>
 <div id="winScreen" class="overlay win hidden">
   <h1>你 逃 出 來 了</h1>
@@ -117,41 +161,49 @@ const CONFIG = {
   playerR: 0.6,       // 玩家碰撞半徑
   eyeH: 1.6,          // 視線高度
   maxSpeed: 8.0,      // 滿音量奔跑速度 (m/s)
-  monsterSpeed: 3.4,  // 怪物速度 (m/s) — 比玩家慢，但你一停下牠就逼近
+  monsterSpeed: 1.7,  // 怪物速度 (m/s) — 比玩家慢，但你一停下牠就逼近（已減半）
   catchDist: 1.3,     // 被抓判定距離
   volThreshold: 0.12, // 開始奔跑的音量門檻 (0~1)
 };
 
 let scene, camera, renderer;
 let player = { x: 0, z: 0, yaw: 0, speed: 0, alive: true, won: false };
-let monster = { x: 0, z: 0, mesh: null };
+let monster = { x: 0, z: 0, mesh: null, limbs: null };
 let exitPos = { x: 0, z: 0 };
 let walls = [];      // {minX,maxX,minZ,maxZ} 供碰撞用
 let micVol = 0;      // 平滑後的麥克風音量 0~1
 let analyser, micData, audioCtx;
 let running = false;
 let clock;
+let caught = false, caughtT = 0, faceTriggered = false;  // 被抓過場狀態
+let flames = [];     // 火把/火盆閃爍光源
 
 // ---------- 迷宮地圖 (1=牆, 0=路, S=起點, E=出口) ----------
 const MAZE = [
-  "1111111111111",
-  "1S0001000001E",
-  "1011101111101",
-  "1000100000101",
-  "1110111110101",
-  "1000001000001",
-  "1011111011110",
-  "1010000010001",
-  "1010110111101",
-  "1000100000001",
-  "1111111111111",
+  "11111111111111111111111",
+  "10000011100000111111111",
+  "10000011100000000000001",
+  "100S0000000000111000001",
+  "10000011111011111000001",
+  "10000011111011111000001",
+  "11101111111011111000001",
+  "11101111111011111111111",
+  "11101111111011111000001",
+  "1110111111101111100E001",
+  "11000111111011111000001",
+  "11000111100000011000001",
+  "11000111100000011110111",
+  "11111111100000000000111",
+  "11111111100000011111111",
+  "11111111100000011111111",
+  "11111111111111111111111",
 ];
 
 // ---------- 初始化場景 ----------
 function initScene() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x050507);
-  scene.fog = new THREE.FogExp2(0x050507, 0.06);
+  scene.background = new THREE.Color(0x0d0805);
+  scene.fog = new THREE.FogExp2(0x140c06, 0.04);   // 暖色塵霧（馬雅墓穴）
 
   camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 200);
   camera.position.y = CONFIG.eyeH;
@@ -160,14 +212,15 @@ function initScene() {
   renderer.setSize(innerWidth, innerHeight);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
-  // 燈光：微弱環境光 + 跟著玩家的手電筒
-  scene.add(new THREE.AmbientLight(0x222233, 1.0));
-  const torch = new THREE.PointLight(0xffaa66, 1.3, 14, 2);
+  // 燈光：暖色環境光 + 玩家手持火把
+  scene.add(new THREE.AmbientLight(0x4a3a26, 1.2));
+  const torch = new THREE.PointLight(0xffb060, 1.7, 20, 2);
   torch.position.set(0, CONFIG.eyeH, 0);
   camera.add(torch);
   scene.add(camera);
 
   buildMaze();
+  buildDecor();
   buildMonster();
 
   window.addEventListener('resize', onResize);
@@ -175,12 +228,15 @@ function initScene() {
 
 function buildMaze() {
   const C = CONFIG.cell;
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 1 });
-  const ceilMat  = new THREE.MeshStandardMaterial({ color: 0x0a0a0d, roughness: 1 });
-  const wallMat  = new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.9 });
-
   const rows = MAZE.length, cols = MAZE[0].length;
   const W = cols * C, D = rows * C;
+
+  // 程式生成的砂岩 / 石磚貼圖（不依賴外部檔）
+  const stoneTex = makeStoneTexture();
+  const floorTex = makeFloorTexture(); floorTex.repeat.set(cols, rows);
+  const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 1 });
+  const ceilMat  = new THREE.MeshStandardMaterial({ color: 0x16110a, roughness: 1 });
+  const wallMat  = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 1 });
 
   // 地板與天花板
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
@@ -214,27 +270,131 @@ function buildMaze() {
       }
     }
   }
-  // 怪物起點：放在玩家後方幾格
-  monster.x = player.x + C*1.0; monster.z = player.z + C*2.0;
+  // 怪物起點：起點正後方的「怪物房」cell(11,3)，距玩家約 8 格
+  monster.x = 3*C + C/2; monster.z = 11*C + C/2;
 }
 
+// ---------- 程式生成貼圖（馬雅砂岩 / 石磚）----------
+function makeStoneTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#8d764c'; x.fillRect(0,0,256,256);
+  for (let i=0;i<2400;i++){ const v=Math.random()*44-22;
+    x.fillStyle = 'rgba('+(141+v|0)+','+(118+v|0)+','+(76+v|0)+',0.5)';
+    x.fillRect(Math.random()*256, Math.random()*256, 2, 2); }
+  x.strokeStyle = 'rgba(42,30,16,0.65)'; x.lineWidth = 3;            // 石磚接縫
+  for (let r=0;r<=256;r+=64){ x.beginPath(); x.moveTo(0,r); x.lineTo(256,r); x.stroke(); }
+  for (let r=0;r<256;r+=64){ const off=((r/64)%2)?32:0;
+    for (let c=off;c<=256;c+=64){ x.beginPath(); x.moveTo(c,r); x.lineTo(c,r+64); x.stroke(); } }
+  x.strokeStyle = 'rgba(58,42,22,0.7)'; x.lineWidth = 2;            // 馬雅回字雕紋
+  for (let k=0;k<7;k++){ const gx=Math.random()*210+16, gy=Math.random()*210+16;
+    x.strokeRect(gx,gy,18,18); x.strokeRect(gx+5,gy+5,8,8); }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function makeFloorTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#5c5038'; x.fillRect(0,0,256,256);
+  for (let i=0;i<1800;i++){ const v=Math.random()*30-15;
+    x.fillStyle = 'rgba('+(92+v|0)+','+(80+v|0)+','+(56+v|0)+',0.5)';
+    x.fillRect(Math.random()*256, Math.random()*256, 2, 2); }
+  x.strokeStyle = 'rgba(24,18,10,0.75)'; x.lineWidth = 4;
+  for (let p=0;p<=256;p+=128){ x.beginPath(); x.moveTo(p,0); x.lineTo(p,256); x.stroke();
+    x.beginPath(); x.moveTo(0,p); x.lineTo(256,p); x.stroke(); }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+
+// ---------- 馬雅風裝飾擺設 ----------
+function buildDecor() {
+  const C = CONFIG.cell;
+  const pos = (r,c) => ({ x: c*C + C/2, z: r*C + C/2 });
+  const sand  = new THREE.MeshStandardMaterial({ color: 0x9a8255, roughness: 1 });
+  const jade  = new THREE.MeshStandardMaterial({ color: 0x3f6b52, roughness: 0.7, emissive: 0x06140d });
+  const terra = new THREE.MeshStandardMaterial({ color: 0x7c4a2c, roughness: 0.9 });
+  const goldM = new THREE.MeshStandardMaterial({ color: 0xd9a82a, roughness: 0.35, metalness: 0.6, emissive: 0x3a2700 });
+
+  function pillar(r,c){ const p=pos(r,c); const g=new THREE.Group();
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.6,CONFIG.wallH,10), sand); shaft.position.y=CONFIG.wallH/2;
+    const base =new THREE.Mesh(new THREE.BoxGeometry(1.6,0.4,1.6), sand); base.position.y=0.2;
+    const cap  =new THREE.Mesh(new THREE.BoxGeometry(1.6,0.4,1.6), sand); cap.position.y=CONFIG.wallH-0.2;
+    g.add(shaft,base,cap); g.position.set(p.x,0,p.z); scene.add(g); }
+  function brokenPillar(r,c){ const p=pos(r,c); const h=1.6+Math.random();
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.6,h,10), sand);
+    shaft.position.set(p.x,h/2,p.z); shaft.rotation.z=0.07; scene.add(shaft);
+    const rub=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.5,0.6), sand); rub.position.set(p.x+0.9,0.25,p.z+0.4); rub.rotation.y=0.6; scene.add(rub); }
+  function urns(r,c){ const p=pos(r,c);
+    for(let i=0;i<3;i++){ const g=new THREE.Group();
+      const body=new THREE.Mesh(new THREE.SphereGeometry(0.32,10,10), terra); body.scale.y=1.3; body.position.y=0.42;
+      const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.2,0.25,8), terra); neck.position.y=0.85;
+      g.add(body,neck); g.position.set(p.x+(i-1)*0.72, 0, p.z+(i%2)*0.5); scene.add(g); } }
+  function idol(r,c){ const p=pos(r,c); const g=new THREE.Group();
+    const base=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.5,1.0), sand); base.position.y=0.25;
+    const body=new THREE.Mesh(new THREE.BoxGeometry(1.0,1.2,0.8), jade); body.position.y=1.1;
+    const head=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.8,0.8), jade); head.position.y=2.0;
+    const eMat=new THREE.MeshStandardMaterial({ color:0xd9a82a, emissive:0x3a2700 });
+    const eL=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.12,0.05), eMat); eL.position.set(-0.2,2.05,0.41);
+    const eR=eL.clone(); eR.position.x=0.2;
+    g.add(base,body,head,eL,eR); g.position.set(p.x,0,p.z); scene.add(g); }
+  function brazier(r,c){ const p=pos(r,c); const g=new THREE.Group();
+    const stand=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.28,1.1,8), sand); stand.position.y=0.55;
+    const bowl =new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.3,0.35,10), sand); bowl.position.y=1.15;
+    const flame=new THREE.Mesh(new THREE.ConeGeometry(0.32,0.8,8), new THREE.MeshBasicMaterial({ color:0xffa022 })); flame.position.y=1.6;
+    g.add(stand,bowl,flame); g.position.set(p.x,0,p.z); scene.add(g);
+    const light=new THREE.PointLight(0xffa840,1.5,13,2); light.position.set(p.x,1.9,p.z); scene.add(light);
+    flames.push({ light, base:1.5, flame }); }
+  function wallTorch(r,c){ const p=pos(r,c);
+    const flame=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.5,7), new THREE.MeshBasicMaterial({ color:0xffb030 }));
+    flame.position.set(p.x,2.7,p.z); scene.add(flame);
+    flames.push({ light:null, base:0, flame }); }
+  function goldPile(r,c){ const p=pos(r,c); const g=new THREE.Group();
+    for(let i=0;i<16;i++){ const cube=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.18), goldM);
+      cube.position.set((Math.random()-0.5)*1.3, Math.random()*0.32, (Math.random()-0.5)*1.3);
+      cube.rotation.set(Math.random(),Math.random(),Math.random()); g.add(cube); }
+    g.position.set(p.x,0.1,p.z); scene.add(g);
+    const gl=new THREE.PointLight(0xffd060,0.6,5,2); gl.position.set(p.x,0.6,p.z); scene.add(gl); }
+
+  // 擺放（皆為開放格）
+  pillar(1,1); brazier(1,4); urns(5,1);
+  urns(1,12);
+  idol(4,19); brazier(4,17);                                  // 死胡同藏神像
+  pillar(11,9); pillar(15,14); idol(14,13); brazier(12,10); urns(13,9);   // 大房
+  goldPile(10,20); brazier(8,18);                             // 出口房寶藏
+  brokenPillar(11,2);                                         // 怪物房斷柱
+  wallTorch(3,8); wallTorch(9,17); wallTorch(13,12);          // 走道火把
+}
+
+// 人形敵人（有頭、軀幹、雙臂、雙腿，可擺動）
 function buildMonster() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8),
-    new THREE.MeshStandardMaterial({ color: 0x901010, emissive: 0x300000, roughness: 0.8 })
-  );
-  body.position.y = 1.1; g.add(body);
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.55, 12, 12),
-    new THREE.MeshStandardMaterial({ color: 0xbb1515, emissive: 0x400000 })
-  );
-  head.position.y = 2.4; g.add(head);
-  // 發紅光的眼睛
-  const eyeL = new THREE.PointLight(0xff2200, 1.2, 6, 2); eyeL.position.set(0,2.4,0); g.add(eyeL);
+  const skin = new THREE.MeshStandardMaterial({ color: 0x6a1414, emissive: 0x250505, roughness: 0.85 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2a0a0a, roughness: 0.9 });
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.3, 0.5), skin);
+  torso.position.y = 1.7; g.add(torso);
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.6), skin);
+  head.position.y = 2.75; g.add(head);
+
+  // 發光紅眼
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3020 });
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMat);
+  eyeL.position.set(-0.15, 2.82, 0.31); g.add(eyeL);
+  const eyeR = eyeL.clone(); eyeR.position.x = 0.15; g.add(eyeR);
+  const eyeLight = new THREE.PointLight(0xff2200, 1.0, 6, 2);
+  eyeLight.position.set(0, 2.8, 0.4); g.add(eyeLight);
+
+  // 雙臂、雙腿
+  const armGeo = new THREE.BoxGeometry(0.22, 1.1, 0.22);
+  const armL = new THREE.Mesh(armGeo, skin); armL.position.set(-0.62, 1.75, 0); g.add(armL);
+  const armR = new THREE.Mesh(armGeo, skin); armR.position.set(0.62, 1.75, 0); g.add(armR);
+  const legGeo = new THREE.BoxGeometry(0.28, 1.15, 0.28);
+  const legL = new THREE.Mesh(legGeo, dark); legL.position.set(-0.24, 0.6, 0); g.add(legL);
+  const legR = new THREE.Mesh(legGeo, dark); legR.position.set(0.24, 0.6, 0); g.add(legR);
+
   g.position.set(monster.x, 0, monster.z);
   scene.add(g);
   monster.mesh = g;
+  monster.limbs = { armL, armR, legL, legR };
 }
 
 // ---------- 麥克風 ----------
@@ -254,15 +414,13 @@ async function initMic() {
 function sampleMic() {
   if (!analyser) return;
   analyser.getByteTimeDomainData(micData);
-  // RMS 音量
   let sum = 0;
   for (let i = 0; i < micData.length; i++) {
     const v = (micData[i] - 128) / 128;
     sum += v * v;
   }
-  const rms = Math.sqrt(sum / micData.length);   // 0~~1
-  const norm = Math.min(1, rms * 3.0);           // 放大方便觸發
-  // 平滑：上升快、下降稍慢
+  const rms = Math.sqrt(sum / micData.length);
+  const norm = Math.min(1, rms * 3.0);
   micVol += (norm - micVol) * (norm > micVol ? 0.6 : 0.25);
 }
 
@@ -276,7 +434,7 @@ function collides(x, z) {
 }
 function tryMove(x, z, nx, nz) {
   let rx = x, rz = z;
-  if (!collides(nx, z)) rx = nx;   // 分軸滑動
+  if (!collides(nx, z)) rx = nx;
   if (!collides(rx, nz)) rz = nz;
   return { x: rx, z: rz };
 }
@@ -286,6 +444,25 @@ function loop() {
   if (!running) return;
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, clock.getDelta());
+
+  // 被抓過場：怪物移到鏡頭正前方、面向玩家（看到正面），逐漸逼近，然後跳恐怖臉
+  if (caught) {
+    caughtT += dt;
+    const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+    const dist = Math.max(1.5, 3.2 - caughtT * 2.0);
+    monster.x = player.x + fx * dist; monster.z = player.z + fz * dist;
+    monster.mesh.position.set(monster.x, 0, monster.z);
+    monster.mesh.lookAt(player.x, 1.7, player.z);
+    if (monster.limbs) {            // 雙臂高舉抓人
+      monster.limbs.armL.rotation.x = -2.5;
+      monster.limbs.armR.rotation.x = -2.5;
+    }
+    camera.position.set(player.x, CONFIG.eyeH, player.z);
+    camera.rotation.set(0, player.yaw, 0, 'YXZ');
+    renderer.render(scene, camera);
+    if (caughtT > 0.85 && !faceTriggered) { faceTriggered = true; showLoseScare(); }
+    return;
+  }
 
   sampleMic();
 
@@ -298,7 +475,6 @@ function loop() {
   player.speed += (target - player.speed) * 0.3;
 
   if (player.alive && !player.won) {
-    // 往視線水平方向前進
     const dirX = -Math.sin(player.yaw);
     const dirZ = -Math.cos(player.yaw);
     const nx = player.x + dirX * player.speed * dt;
@@ -314,7 +490,6 @@ function loop() {
     const mMoved = tryMove(monster.x, monster.z, mnx, mnz);
     monster.x = mMoved.x; monster.z = mMoved.z;
 
-    // 判定
     if (mdist < CONFIG.catchDist) endGame(false);
     if (Math.hypot(player.x-exitPos.x, player.z-exitPos.z) < CONFIG.cell*0.5) endGame(true);
   }
@@ -326,9 +501,24 @@ function loop() {
   if (monster.mesh) {
     monster.mesh.position.set(monster.x, 0, monster.z);
     monster.mesh.lookAt(player.x, 0, player.z);
+    if (monster.limbs) {           // 走路擺動四肢
+      const sw = Math.sin(performance.now()/140) * 0.6;
+      monster.limbs.armL.rotation.x = sw;
+      monster.limbs.armR.rotation.x = -sw;
+      monster.limbs.legL.rotation.x = -sw;
+      monster.limbs.legR.rotation.x = sw;
+    }
+  }
+
+  // 火焰閃爍
+  for (const f of flames) {
+    const k = 0.7 + Math.random() * 0.5;
+    if (f.light) f.light.intensity = f.base * k;
+    if (f.flame) f.flame.scale.set(0.9 + Math.random()*0.2, 0.82 + Math.random()*0.4, 0.9 + Math.random()*0.2);
   }
 
   updateHUD();
+  drawMinimap();
   renderer.render(scene, camera);
 }
 
@@ -347,10 +537,49 @@ function updateHUD() {
   tag.style.opacity = player.speed > 2 ? '1' : '0';
 }
 
+// 即時小地圖
+function drawMinimap() {
+  const cv = document.getElementById('minimap');
+  const ctx = cv.getContext('2d');
+  const rows = MAZE.length, cols = MAZE[0].length;
+  const s = Math.min(cv.width/cols, cv.height/rows);
+  const offx = (cv.width - cols*s)/2, offy = (cv.height - rows*s)/2;
+  const C = CONFIG.cell;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++){
+    ctx.fillStyle = (MAZE[r][c]==='1') ? '#241c2c' : '#cfcdd6';
+    ctx.fillRect(offx+c*s, offy+r*s, s+0.6, s+0.6);
+  }
+  // 出口
+  ctx.fillStyle = '#33ff88';
+  ctx.fillRect(offx+(exitPos.x/C - 0.5)*s, offy+(exitPos.z/C - 0.5)*s, s, s);
+  // 怪物（紅）
+  ctx.fillStyle = '#ff3030';
+  ctx.beginPath(); ctx.arc(offx+(monster.x/C)*s, offy+(monster.z/C)*s, s*0.5, 0, 7); ctx.fill();
+  // 玩家（藍）+ 面向線
+  const px = offx+(player.x/C)*s, py = offy+(player.z/C)*s;
+  ctx.fillStyle = '#3bd0ff';
+  ctx.beginPath(); ctx.arc(px, py, s*0.5, 0, 7); ctx.fill();
+  const dirX = -Math.sin(player.yaw), dirZ = -Math.cos(player.yaw);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+dirX*s*1.5, py+dirZ*s*1.5); ctx.stroke();
+}
+
 function endGame(won) {
-  player.won = won; player.alive = won ? player.alive : false;
-  running = false;
-  document.getElementById(won ? 'winScreen' : 'loseScreen').classList.remove('hidden');
+  if (won) {
+    player.won = true; running = false;
+    document.getElementById('winScreen').classList.remove('hidden');
+    return;
+  }
+  // 被抓 → 進入過場（先看到敵人正面，再跳恐怖臉）
+  if (!caught) { caught = true; caughtT = 0; player.alive = false; }
+}
+
+function showLoseScare() {
+  document.getElementById('loseScreen').classList.remove('hidden');
+  const btn = document.getElementById('loseBtn');
+  btn.style.opacity = '0';
+  setTimeout(() => { btn.style.opacity = '1'; }, 1300);  // 嚇完才出現按鈕
 }
 
 // ---------- 輸入：桌機滑鼠 + 手機觸控轉頭 ----------
@@ -358,7 +587,6 @@ const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 function setupControls() {
   const cvs = document.getElementById('game');
 
-  // --- 桌機：pointer lock 滑鼠 ---
   if (!IS_TOUCH) {
     cvs.addEventListener('click', () => cvs.requestPointerLock());
     document.addEventListener('mousemove', (e) => {
@@ -368,13 +596,12 @@ function setupControls() {
     });
   }
 
-  // --- 手機：手指拖曳轉頭（左右拖動視線）---
   let lastTouchX = null;
   const onStart = (e) => { lastTouchX = e.touches[0].clientX; };
   const onMove = (e) => {
     if (lastTouchX === null) return;
     const x = e.touches[0].clientX;
-    player.yaw -= (x - lastTouchX) * 0.005;   // 拖曳靈敏度
+    player.yaw -= (x - lastTouchX) * 0.005;
     lastTouchX = x;
     e.preventDefault();
   };
