@@ -86,7 +86,8 @@
   </p>
   <p class="keys">手機：手指拖曳螢幕轉頭　·　電腦：移動滑鼠轉頭<br>尖叫：往面對的方向奔跑（越大聲越快）　·　找到綠色發光的出口逃出去。<br><span style="color:#fa6">手機請橫向拿、把鈴聲開關打開，並允許麥克風。</span></p>
   <button id="startBtn">允許麥克風並開始</button>
-  <p class="keys" id="micErr" style="color:#f66;"></p>
+  <div id="micErr" style="display:none; max-width:600px; margin-top:10px; padding:14px 18px;
+       background:#400; border:1px solid #f55; border-radius:8px; color:#fdd; font-size:15px; line-height:1.7;"></div>
 </div>
 
 <!-- End overlays -->
@@ -213,9 +214,7 @@ function buildMaze() {
       }
     }
   }
-  // 怪物起點：放在出口附近的另一端起點處（這裡放迷宮深處）
-  monster.x = exitPos.x; monster.z = exitPos.z; // 暫放，下面重設
-  // 把怪物放在玩家後方幾格
+  // 怪物起點：放在玩家後方幾格
   monster.x = player.x + C*1.0; monster.z = player.z + C*2.0;
 }
 
@@ -357,4 +356,70 @@ function endGame(won) {
 // ---------- 輸入：桌機滑鼠 + 手機觸控轉頭 ----------
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 function setupControls() {
-  const cvs = do
+  const cvs = document.getElementById('game');
+
+  // --- 桌機：pointer lock 滑鼠 ---
+  if (!IS_TOUCH) {
+    cvs.addEventListener('click', () => cvs.requestPointerLock());
+    document.addEventListener('mousemove', (e) => {
+      if (document.pointerLockElement === cvs) {
+        player.yaw -= e.movementX * 0.0025;
+      }
+    });
+  }
+
+  // --- 手機：手指拖曳轉頭（左右拖動視線）---
+  let lastTouchX = null;
+  const onStart = (e) => { lastTouchX = e.touches[0].clientX; };
+  const onMove = (e) => {
+    if (lastTouchX === null) return;
+    const x = e.touches[0].clientX;
+    player.yaw -= (x - lastTouchX) * 0.005;   // 拖曳靈敏度
+    lastTouchX = x;
+    e.preventDefault();
+  };
+  const onEnd = () => { lastTouchX = null; };
+  cvs.addEventListener('touchstart', onStart, { passive: true });
+  cvs.addEventListener('touchmove', onMove, { passive: false });
+  cvs.addEventListener('touchend', onEnd, { passive: true });
+  cvs.addEventListener('touchcancel', onEnd, { passive: true });
+}
+
+function onResize() {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+
+// ---------- 啟動 ----------
+document.getElementById('startBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('startBtn');
+  const errBox = document.getElementById('micErr');
+  errBox.style.display = 'none';
+  btn.textContent = '啟動中…請看瀏覽器上方是否跳出詢問';
+  btn.disabled = true;
+  try {
+    await initMic();
+  } catch (err) {
+    let hint = '';
+    if (err.name === 'NotAllowedError') hint = '＝你（或系統）拒絕了麥克風。請到 Windows「設定→隱私權與安全性→麥克風」，確認「麥克風存取」和「讓應用程式存取麥克風」都開啟，且 Microsoft Edge 是允許的。';
+    else if (err.name === 'NotFoundError') hint = '＝找不到麥克風裝置。';
+    else if (err.name === 'NotReadableError') hint = '＝麥克風被其他程式佔用（例如會議軟體），請關掉它們再試。';
+    errBox.innerHTML = '<b>無法啟動麥克風</b><br>錯誤代碼：' + err.name + '<br>訊息：' + err.message + '<br>' + hint;
+    errBox.style.display = 'block';
+    btn.textContent = '再試一次';
+    btn.disabled = false;
+    console.error('mic error:', err);
+    return;
+  }
+  document.getElementById('startScreen').classList.add('hidden');
+  initScene();
+  setupControls();
+  clock = new THREE.Clock();
+  running = true;
+  if (!IS_TOUCH) document.getElementById('game').requestPointerLock();
+  loop();
+});
+</script>
+</body>
+</html>
